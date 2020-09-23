@@ -17,4 +17,9 @@ Here are some ideas to get you started:
 
 
 - 🌱 I’m currently learning ...
-- ⚡ Interests: アニメ　白い巨塔
+<details>
+  <summary><b>:telescope: 2020 goal</b></summary>
+  I want to make more friends.<br>
+  - ⚡ Interests: アニメ　白い巨塔
+</details>
+
