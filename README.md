@@ -21,5 +21,10 @@ Here are some ideas to get you started:
   <summary><b>:telescope: 2020 goal</b></summary>
   I want to make more friends.<br>
   - ⚡ Interests: アニメ　白い巨塔
+  
+  
+  
+  
+  ![Komari-Koshigaya's Github stats](https://github-readme-stats.vercel.app/api?username=Komari-Koshigaya&show_icons=true)
 </details>
 
