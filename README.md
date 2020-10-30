@@ -25,6 +25,6 @@ Here are some ideas to get you started:
   
   
   
-  ![Komari-Koshigaya's Github stats](https://github-readme-stats.vercel.app/api?username=Komari-Koshigaya&show_icons=true)
+  ![Komari-Koshigaya's Github stats](https://github-readme-stats.vercel.app/api?username=Komari-Koshigaya&show_icons=true&theme=dark)
 </details>
 
