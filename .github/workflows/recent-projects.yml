@@ -1,0 +1,57 @@
+name: Recent Projects
+
+on:
+  schedule:
+    # 09:43 Beijing time.
+    - cron: '43 1 * * *'
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'scripts/update_recent_projects.py'
+      - 'tests/test_recent_projects.py'
+      - 'tests/fixtures/github_repos.json'
+      - '.github/workflows/recent-projects.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: recent-projects
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Update README
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          python scripts/update_recent_projects.py
+          --username "${{ github.repository_owner }}"
+          --readme README.md
+
+      - name: Commit if changed
+        shell: bash
+        run: |
+          if git diff --quiet -- README.md; then
+            echo "README.md is already up to date"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "docs: update recent projects"
+          git push
