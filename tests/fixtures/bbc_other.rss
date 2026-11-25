@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <title>The English We Speak</title>
+    <link>https://www.bbc.co.uk/learningenglish/english/features/the-english-we-speak</link>
+    <description>Everyday English expressions.</description>
+    <item>
+      <title>Facepalm moment</title>
+      <description>Learn a phrase for when you feel embarrassed about something.</description>
+      <link>https://www.bbc.co.uk/learningenglish/english/features/the-english-we-speak_2026/ep-261118</link>
+      <guid isPermaLink="false">urn:bbc:podcast:tews:20261118</guid>
+      <pubDate>Wed, 18 Nov 2026 09:00:00 GMT</pubDate>
+      <itunes:duration>02:30</itunes:duration>
+      <enclosure url="https://example.com/tews-261118.mp3" type="audio/mpeg" length="5000"/>
+    </item>
+    <item>
+      <title>Here for it</title>
+      <description>An expression to show you are excited about something.</description>
+      <link>https://www.bbc.co.uk/learningenglish/english/features/the-english-we-speak_2026/ep-261111</link>
+      <guid isPermaLink="false">urn:bbc:podcast:tews:20261111</guid>
+      <pubDate>Wed, 11 Nov 2026 09:00:00 GMT</pubDate>
+      <itunes:duration>02:15</itunes:duration>
+    </item>
+  </channel>
+</rss>

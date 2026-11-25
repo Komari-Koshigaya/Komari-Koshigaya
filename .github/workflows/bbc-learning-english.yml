@@ -1,0 +1,83 @@
+# Requires a repository secret named SERVERCHAN_SENDKEY (a Server酱 SendKey).
+name: BBC Learning English -> WeChat
+
+on:
+  schedule:
+    # GitHub cron is UTC. These are 08:00 and 20:00 in Beijing (UTC+8).
+    - cron: '0 0 * * *'
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: 'Which push slot? auto uses the Beijing hour.'
+        required: false
+        default: auto
+        type: choice
+        options:
+          - auto
+          - morning
+          - evening
+      dry_run:
+        description: 'Only print the message; do not push or save state.'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bbc-learning-english
+  cancel-in-progress: false
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Restore sent-episode state
+        uses: actions/cache@v4
+        with:
+          path: .state
+          key: bbc-state-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            bbc-state-
+
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Resolve push slot
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            if [ "${{ github.event.schedule }}" = "0 12 * * *" ]; then
+              echo "PUSH_SLOT=evening" >> "$GITHUB_ENV"
+            else
+              echo "PUSH_SLOT=morning" >> "$GITHUB_ENV"
+            fi
+          else
+            slot="${{ github.event.inputs.slot }}"
+            if [ -z "$slot" ]; then
+              slot="auto"
+            fi
+            echo "PUSH_SLOT=$slot" >> "$GITHUB_ENV"
+          fi
+
+      - name: Push to WeChat
+        env:
+          SERVERCHAN_SENDKEY: ${{ secrets.SERVERCHAN_SENDKEY }}
+          STATE_FILE: .state/bbc_learning_english.json
+        run: |
+          mkdir -p .state
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            python scripts/push_bbc_learning_english.py --dry-run
+          else
+            python scripts/push_bbc_learning_english.py
+          fi

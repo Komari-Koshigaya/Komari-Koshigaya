@@ -1,0 +1,53 @@
+name: Contribution Snake
+
+on:
+  schedule:
+    # 23:17 Beijing time, after most of the day's contributions are counted.
+    - cron: '17 15 * * *'
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'scripts/contribution_snake.py'
+      - 'tests/test_contribution_snake.py'
+      - 'tests/fixtures/contributions.html'
+      - '.github/workflows/contribution-snake.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: contribution-snake
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Generate snake SVGs
+        run: >-
+          python scripts/contribution_snake.py
+          --username "${{ github.repository_owner }}"
+          --output-dir dist
+
+      - name: Publish to output branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: output
+          force_orphan: true
+          user_name: github-actions[bot]
+          user_email: github-actions[bot]@users.noreply.github.com
+          commit_message: 'chore: update contribution snake'

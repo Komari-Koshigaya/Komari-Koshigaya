@@ -6,6 +6,15 @@
 
 ### 🐍 Contribution Snake
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)"
+            srcset="https://raw.githubusercontent.com/Komari-Koshigaya/Komari-Koshigaya/output/snake-dark.svg">
+    <img alt="An animated snake eating GitHub contribution cells"
+         src="https://raw.githubusercontent.com/Komari-Koshigaya/Komari-Koshigaya/output/snake.svg">
+  </picture>
+</p>
+
 
 ### 📝 Recent Posts
 <!-- BLOG-POST-LIST:START -->

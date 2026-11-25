@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <title>6 Minute English</title>
+    <link>https://www.bbc.co.uk/learningenglish/english/features/6-minute-english</link>
+    <description>Learn and practise useful English language for everyday situations.</description>
+    <item>
+      <title>Why do we dream?</title>
+      <description><![CDATA[<p>We spend a third of our lives asleep. <b>Neil</b> and Beth discuss why we dream.</p>]]></description>
+      <link>https://www.bbc.co.uk/learningenglish/english/features/6-minute-english_2026/ep-261120</link>
+      <guid isPermaLink="false">urn:bbc:podcast:6min:20261120</guid>
+      <pubDate>Fri, 20 Nov 2026 10:00:00 GMT</pubDate>
+      <itunes:duration>06:12</itunes:duration>
+      <enclosure url="https://example.com/6min-261120.mp3" type="audio/mpeg" length="12345"/>
+    </item>
+    <item>
+      <title>Are you a good listener?</title>
+      <description><![CDATA[<p>Listening is a skill. <i>Learn</i> how to do it better.</p>]]></description>
+      <link>https://www.bbc.co.uk/learningenglish/english/features/6-minute-english_2026/ep-261113</link>
+      <guid isPermaLink="false">urn:bbc:podcast:6min:20261113</guid>
+      <pubDate>Fri, 13 Nov 2026 10:00:00 GMT</pubDate>
+      <itunes:duration>06:01</itunes:duration>
+      <enclosure url="https://example.com/6min-261113.mp3" type="audio/mpeg" length="12000"/>
+    </item>
+  </channel>
+</rss>
