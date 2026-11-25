@@ -1,4 +1,22 @@
-### Hi there 👋
+# Hi 👋, I'm Kanji
+
+### 📊 GitHub Stats
+
+
+
+### 🐍 Contribution Snake
+
+
+### 📝 Recent Posts
+<!-- BLOG-POST-LIST:START -->
+<!-- BLOG-POST-LIST:END -->
+
+---
+### 🛠️ Tech Stack
+Java | Python | JavaScript | Linux | WSL
+
+
+### Recent Updates
 
 <!--
 **Komari-Koshigaya/Komari-Koshigaya** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
