@@ -3,9 +3,16 @@ name: BBC Learning English -> WeChat
 
 on:
   schedule:
-    # GitHub cron is UTC. These are 08:00 and 20:00 in Beijing (UTC+8).
+    # GitHub cron is UTC. These are 08:00/09:00/10:00 and
+    # 20:00/21:00/22:00 in Beijing (UTC+8). The later runs are backups:
+    # GitHub can delay or drop scheduled runs under load, and the script
+    # skips a slot that was already pushed (state cache).
     - cron: '0 0 * * *'
+    - cron: '0 1 * * *'
+    - cron: '0 2 * * *'
     - cron: '0 12 * * *'
+    - cron: '0 13 * * *'
+    - cron: '0 14 * * *'
   workflow_dispatch:
     inputs:
       slot:
@@ -57,11 +64,14 @@ jobs:
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            if [ "${{ github.event.schedule }}" = "0 12 * * *" ]; then
-              echo "PUSH_SLOT=evening" >> "$GITHUB_ENV"
-            else
-              echo "PUSH_SLOT=morning" >> "$GITHUB_ENV"
-            fi
+            case "${{ github.event.schedule }}" in
+              "0 12 * * *"|"0 13 * * *"|"0 14 * * *")
+                echo "PUSH_SLOT=evening" >> "$GITHUB_ENV"
+                ;;
+              *)
+                echo "PUSH_SLOT=morning" >> "$GITHUB_ENV"
+                ;;
+            esac
           else
             slot="${{ github.event.inputs.slot }}"
             if [ -z "$slot" ]; then

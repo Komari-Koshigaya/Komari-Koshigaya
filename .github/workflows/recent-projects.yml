@@ -2,8 +2,11 @@ name: Recent Projects
 
 on:
   schedule:
-    # 09:43 Beijing time.
+    # 09:43, 12:43 and 15:43 Beijing time. Backup runs are idempotent:
+    # the script only commits when the README actually changes.
     - cron: '43 1 * * *'
+    - cron: '43 4 * * *'
+    - cron: '43 7 * * *'
   workflow_dispatch:
   push:
     branches: [master]
