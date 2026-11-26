@@ -1,7 +1,7 @@
 # Hi 👋, I'm Kanji
 
 ### 📊 GitHub Stats
-
+![Komari-Koshigaya's Github stats](https://github-readme-stats.vercel.app/api?username=Komari-Koshigaya&show_icons=true)
 
 
 ### 🐍 Contribution Snake
