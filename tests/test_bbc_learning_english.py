@@ -20,6 +20,7 @@ import push_bbc_learning_english as bbc  # noqa: E402
 
 FIXTURE_6MIN = ROOT / "tests" / "fixtures" / "bbc_6min.rss"
 FIXTURE_OTHER = ROOT / "tests" / "fixtures" / "bbc_other.rss"
+FIXTURE_TRANSCRIPT = ROOT / "tests" / "fixtures" / "bbc_transcript.html"
 NOW = datetime(2026, 11, 25, 0, 5, tzinfo=timezone.utc)  # 08:05 Beijing
 
 
@@ -276,6 +277,60 @@ class MessageTests(unittest.TestCase):
         self.assertIn("晚间", bbc.build_message([selection], "evening", NOW)[0])
 
 
+class TranscriptTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.episodes = load_episodes()
+
+    def test_normalize_title(self) -> None:
+        self.assertEqual(
+            bbc.normalize_title(
+                "BBC Learning English - 6 Minute English / Is Gen Z getting less intelligent?"
+            ),
+            "is gen z getting less intelligent",
+        )
+        self.assertEqual(
+            bbc.normalize_title("Is Gen Z getting less intelligent?"),
+            "is gen z getting less intelligent",
+        )
+
+    def test_extract_transcript(self) -> None:
+        text = bbc.extract_transcript_html(
+            FIXTURE_TRANSCRIPT.read_text(encoding="utf-8")
+        )
+        self.assertIsNotNone(text)
+        self.assertIn("**Introduction**", text)
+        self.assertIn("Introduction text for the episode.", text)
+        self.assertIn("**This week's question**", text)
+        self.assertIn("**Transcript**", text)
+        self.assertIn("**Neil:** Hello. This is 6 Minute English.", text)
+        self.assertIn("**Beth:** And I'm Beth.", text)
+        self.assertIn("**Neil:** Let's begin.", text)
+        self.assertIn("**Vocabulary**", text)
+        self.assertIn("**word:** A definition of the word.", text)
+        self.assertNotIn("Download", text)
+        self.assertNotIn("Next episode link.", text)
+
+    def test_extract_without_transcript(self) -> None:
+        self.assertIsNone(
+            bbc.extract_transcript_html("<h2>About</h2><p>Nothing here.</p>")
+        )
+
+    def test_message_contains_full_text(self) -> None:
+        selection = bbc.Selection(
+            self.episodes[0], "new", "**Neil:** Hello.\n\n**Beth:** Hi."
+        )
+        _, body = bbc.build_message([selection], "morning", NOW)
+        self.assertIn("#### 📄 Full text", body)
+        self.assertIn("**Neil:** Hello.", body)
+
+    def test_message_warns_when_transcript_missing(self) -> None:
+        selection = bbc.Selection(self.episodes[0], "new", None)
+        _, body = bbc.build_message(
+            [selection], "morning", NOW, transcript_enabled=True
+        )
+        self.assertIn("全文抓取失败", body)
+
+
 class MainTests(unittest.TestCase):
     def test_dry_run_uses_fixtures_and_masks_key(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -291,6 +346,7 @@ class MainTests(unittest.TestCase):
                         "--feed-file", f"6min={FIXTURE_6MIN}",
                         "--feed-file", f"tews={FIXTURE_OTHER}",
                         "--dry-run",
+                        "--no-transcript",
                         "--now", "2026-11-25T08:05:00+08:00",
                     ])
             text = output.getvalue()
@@ -359,6 +415,7 @@ class MainTests(unittest.TestCase):
             with contextlib.redirect_stdout(output):
                 code = bbc.main([
                     "--dry-run",
+                    "--no-transcript",
                     "--slot", "morning",
                     "--state", str(Path(tmp) / "state.json"),
                     "--feed-file", f"6min={FIXTURE_6MIN}",

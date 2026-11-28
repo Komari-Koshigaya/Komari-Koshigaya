@@ -29,6 +29,11 @@ on:
         required: false
         default: false
         type: boolean
+      force:
+        description: 'Force a push even if this slot was already sent.'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -86,8 +91,12 @@ jobs:
           STATE_FILE: .state/bbc_learning_english.json
         run: |
           mkdir -p .state
+          args=""
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            args="--force"
+          fi
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            python scripts/push_bbc_learning_english.py --dry-run
+            python scripts/push_bbc_learning_english.py --dry-run --preview-chars 600 $args
           else
-            python scripts/push_bbc_learning_english.py
+            python scripts/push_bbc_learning_english.py $args
           fi

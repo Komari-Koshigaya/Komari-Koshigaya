@@ -98,12 +98,24 @@ class Episode:
 class Selection:
     episode: Episode
     kind: str  # "new" or "review"
+    transcript: str | None = None
 
 
 TAG_RE = re.compile(r"<[^>]+>")
 WS_RE = re.compile(r"\s+")
 CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 MD_ESCAPE_RE = re.compile(r"([\\`*_\[\]()#])")
+TRANSCRIPT_FEEDS = {
+    "6min": "https://feeds.bbci.co.uk/learningenglish/english/features/6-minute-english/rss",
+    "tews": "https://feeds.bbci.co.uk/learningenglish/english/features/the-english-we-speak/rss",
+}
+TRANSCRIPT_MAX_CHARS = 24000
+HEADING_RE = re.compile(r"<h([1-6])\b[^>]*>(.*?)</h\1>", re.I | re.S)
+BLOCK_RE = re.compile(
+    r"<h([1-6])\b[^>]*>(.*?)</h\1>|<p\b[^>]*>(.*?)</p>", re.I | re.S
+)
+BR_RE = re.compile(r"<br\s*/?>", re.I)
+STRONG_RE = re.compile(r"<strong\b[^>]*>(.*?)</strong>", re.I | re.S)
 
 
 def _local_name(tag: str) -> str:
@@ -487,8 +499,131 @@ def md_escape(value: str) -> str:
     return MD_ESCAPE_RE.sub(r"\\\1", value)
 
 
+_FEATURE_FEED_CACHE: dict[str, dict[str, str]] = {}
+
+
+def normalize_title(value: str) -> str:
+    """Normalize a title so the podcast and feature feeds can be matched."""
+    value = strip_html(value)
+    value = re.sub(
+        r"^\s*BBC Learning English\s*[-–—]\s*[^/]+\s*/\s*",
+        "",
+        value,
+        flags=re.I,
+    )
+    if " / " in value:
+        value = value.split(" / ", 1)[1]
+    value = value.lower()
+    return re.sub(r"[^a-z0-9]+", " ", value).strip()
+
+
+def load_feature_feed_map(feed_id: str, timeout: float = 20.0,
+                          retries: int = 2) -> dict[str, str]:
+    """Map normalized episode titles to their Learning English page URLs."""
+    if feed_id in _FEATURE_FEED_CACHE:
+        return _FEATURE_FEED_CACHE[feed_id]
+    url = TRANSCRIPT_FEEDS.get(feed_id)
+    if not url:
+        return {}
+    data, _ = fetch_bytes(url, timeout, retries)
+    _, items = parse_rss(data, FeedSpec(feed_id, feed_id, ()))
+    mapping: dict[str, str] = {}
+    for item in items:
+        title = normalize_title(item.title)
+        if title and item.link:
+            mapping.setdefault(title, item.link)
+    _FEATURE_FEED_CACHE[feed_id] = mapping
+    return mapping
+
+
+def resolve_transcript_url(episode: Episode, timeout: float = 20.0,
+                           retries: int = 2) -> str | None:
+    try:
+        mapping = load_feature_feed_map(episode.feed_id, timeout, retries)
+    except (RuntimeError, ET.ParseError, ValueError) as exc:
+        LOG.warning("could not load transcript feed for %s: %s",
+                    episode.feed_id, exc)
+        mapping = {}
+    url = mapping.get(normalize_title(episode.title))
+    if url:
+        return url
+    if "learningenglish" in episode.link.lower():
+        return episode.link
+    return None
+
+
+def _inline_text(value: str) -> str:
+    value = BR_RE.sub("\n", value)
+    value = STRONG_RE.sub(
+        lambda match: "**" + strip_html(match.group(1)) + "**", value
+    )
+    value = TAG_RE.sub(" ", value)
+    value = html.unescape(value)
+    value = CONTROL_RE.sub(" ", value)
+    lines = [re.sub(r"[ \t]+", " ", line).strip() for line in value.split("\n")]
+    text = "\n".join(line for line in lines if line)
+    return re.sub(
+        r"^\*\*([A-Za-z][A-Za-z .'-]{0,29})\*\*\s*\n",
+        r"**\1:** ",
+        text,
+        flags=re.M,
+    ).strip()
+
+
+def extract_transcript_html(text: str) -> str | None:
+    """Extract Introduction → Next from a BBC Learning English episode page."""
+    start: int | None = None
+    end: int | None = None
+    for match in HEADING_RE.finditer(text):
+        heading_text = strip_html(match.group(2)).lower()
+        if start is None and heading_text == "introduction":
+            start = match.start()
+        elif start is not None and heading_text == "next":
+            end = match.start()
+            break
+    if start is None:
+        return None
+    fragment = text[start:end] if end is not None else text[start: start + 120000]
+    blocks: list[str] = []
+    for match in BLOCK_RE.finditer(fragment):
+        if match.group(1):
+            heading_text = strip_html(match.group(2))
+            if heading_text:
+                blocks.append(f"**{heading_text}**")
+        else:
+            paragraph = _inline_text(match.group(3))
+            if paragraph:
+                blocks.append(paragraph)
+    content = re.sub(r"\n{3,}", "\n\n", "\n\n".join(blocks)).strip()
+    if len(content) < 120:
+        return None
+    if len(content) > TRANSCRIPT_MAX_CHARS:
+        content = content[:TRANSCRIPT_MAX_CHARS].rstrip() + "\n\n…(全文过长，已截断)"
+    return content
+
+
+def fetch_episode_transcript(episode: Episode, timeout: float = 30.0,
+                             retries: int = 2) -> str | None:
+    url = resolve_transcript_url(episode, timeout, retries)
+    if not url:
+        return None
+    LOG.info("fetching transcript for %s: %s", episode.title, url)
+    try:
+        data, status = fetch_bytes(url, timeout, retries)
+    except RuntimeError as exc:
+        LOG.warning("transcript fetch failed for %s: %s", episode.title, exc)
+        return None
+    text = extract_transcript_html(data.decode("utf-8", errors="replace"))
+    if not text:
+        LOG.warning("no transcript found at %s (HTTP %s)", url, status)
+        return None
+    LOG.info("transcript for %s: %d chars", episode.title, len(text))
+    return text
+
+
 def build_message(selections: Sequence[Selection], slot: str,
-                  now: datetime) -> tuple[str, str]:
+                  now: datetime,
+                  transcript_enabled: bool = False) -> tuple[str, str]:
     slot_label = "早间" if slot == "morning" else "晚间"
     date_label = now.astimezone(BEIJING).strftime("%m/%d")
     kinds = {selection.kind for selection in selections}
@@ -528,6 +663,13 @@ def build_message(selections: Sequence[Selection], slot: str,
             lines.append(" · ".join(links))
         if selection.kind == "review":
             lines.append("\n> ♻️ 今天没有新节目，推送一期往期内容复习。")
+        if selection.transcript:
+            lines.append("#### 📄 Full text\n\n" + selection.transcript)
+        elif transcript_enabled:
+            if episode.feed_id in TRANSCRIPT_FEEDS:
+                lines.append("> ⚠️ 全文抓取失败，请打开节目页面查看。")
+            else:
+                lines.append("> ℹ️ 该节目暂无网页全文，可打开节目页面收听。")
         blocks.append("\n\n".join(lines))
 
     body = "\n\n---\n\n".join(blocks)
@@ -693,11 +835,21 @@ def main(argv: list[str] | None = None) -> int:
         "--timeout", type=float, default=20.0,
         help="HTTP timeout in seconds (default: 20).",
     )
+    parser.add_argument(
+        "--no-transcript", action="store_true",
+        help="Do not fetch the episode's full text from BBC Learning English.",
+    )
+    parser.add_argument(
+        "--preview-chars", type=int, default=0,
+        help="In --dry-run, print only this many body characters (0 = full).",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     if args.max_items < 1:
         parser.error("--max-items must be >= 1")
+    if args.preview_chars < 0:
+        parser.error("--preview-chars must be >= 0")
 
     try:
         now = parse_now(args.now)
@@ -784,13 +936,31 @@ def main(argv: list[str] | None = None) -> int:
             selection.episode.series,
             selection.episode.guid,
         )
-    title, body = build_message(selections, slot, now)
+
+    if not args.no_transcript:
+        enriched: list[Selection] = []
+        for selection in selections:
+            transcript = fetch_episode_transcript(
+                selection.episode, timeout=args.timeout
+            )
+            enriched.append(
+                Selection(selection.episode, selection.kind, transcript)
+            )
+        selections = enriched
+
+    title, body = build_message(
+        selections, slot, now, transcript_enabled=not args.no_transcript
+    )
 
     if args.dry_run:
         print("=== TITLE ===")
         print(title)
         print("=== BODY ===")
-        print(body)
+        if args.preview_chars and len(body) > args.preview_chars:
+            print(body[: args.preview_chars].rstrip())
+            print(f"\n…(preview truncated; total {len(body)} chars)")
+        else:
+            print(body)
         print("=== ENDPOINT ===")
         print(mask_endpoint(endpoint) if endpoint else "(dry-run, no key needed)")
         if is_slot_done(state, now, slot):
