@@ -18,7 +18,7 @@
 
 ### 🚀 Recent Projects
 <!-- RECENT-PROJECTS:START -->
-- [gitcode-npusim-review](https://github.com/Komari-Koshigaya/gitcode-npusim-review) — Daily automated code review of gitcode.com/cann/npu-simulator PRs, with HTML reports on GitHub Pages <sub>2026-11-27</sub>
+- [gitcode-npusim-review](https://github.com/Komari-Koshigaya/gitcode-npusim-review) — Daily automated code review of gitcode.com/cann/npu-simulator PRs, with HTML reports on GitHub Pages <sub>2026-11-28</sub>
 - [chromeScripts](https://github.com/Komari-Koshigaya/chromeScripts) — 个人油猴 (Tampermonkey) 脚本合集 <sub>2026-09-26</sub>
 - [duplicate-cleaner](https://github.com/Komari-Koshigaya/duplicate-cleaner) — Duplicate file finder and cleaner with GUI - 基于内容哈希的重复文件查找清理工具 <sub>2026-06-23</sub>
 - [media-server](https://github.com/Komari-Koshigaya/media-server) — 局域网媒体服务器 <sub>2026-06-21</sub>
