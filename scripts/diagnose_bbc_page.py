@@ -11,7 +11,6 @@ from __future__ import annotations
 import re
 import sys
 import urllib.error
-import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -20,21 +19,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import push_bbc_learning_english as bbc  # noqa: E402
 
 USER_AGENT = bbc.USER_AGENT
-PODCAST_FEEDS = [
-    ("6min", "https://podcasts.files.bbci.co.uk/p02pc9tn.rss"),
-    ("tews", "https://podcasts.files.bbci.co.uk/p02pc9zn.rss"),
-    ("6grammar", "https://podcasts.files.bbci.co.uk/p02pc9wq.rss"),
-]
 FEATURE_FEEDS = [
     ("6min", "https://feeds.bbci.co.uk/learningenglish/english/features/6-minute-english/rss"),
     ("tews", "https://feeds.bbci.co.uk/learningenglish/english/features/the-english-we-speak/rss"),
-    ("6grammar", "https://feeds.bbci.co.uk/learningenglish/english/features/6-minute-grammar/rss"),
 ]
-HEADING_RE = re.compile(r"<h([1-4])[^>]*>(.*?)</h\1>", re.I | re.S)
-LINK_RE = re.compile(r"<a\b[^>]*href=\"([^\"]+)\"", re.I)
-CLASS_RE = re.compile(r"class=\"([^\"]+)\"", re.I)
-TAG_RE = re.compile(r"</?([a-z0-9]+)(?:\s+[^>]*)?>", re.I)
-INTERESTING = ("learningenglish", "/features/", "ep-")
+HEADING_RE = re.compile(r"<h([1-6])[^>]*>(.*?)</h\1>", re.I | re.S)
+TRANSCRIPT_ELEMENT_RE = re.compile(
+    r"<([a-z0-9]+)([^>]*(?:id|class)=\"[^\"]*transcript[^\"]*\"[^>]*)>", re.I
+)
+CLASS_OR_ID_RE = re.compile(r"(?:id|class)=\"([^\"]+)\"", re.I)
+TAG_ATTR_RE = re.compile(r"<([a-z0-9]+)(\s[^>]*)?>", re.I)
 
 
 def fetch(url: str) -> bytes:
@@ -46,8 +40,13 @@ def fetch(url: str) -> bytes:
         return response.read()
 
 
-def print_page_structure(label: str, url: str) -> None:
-    print(f"--- page structure: {label} ---")
+def clean_text(value: str) -> str:
+    value = re.sub(r"<[^>]+>", " ", value)
+    return " ".join(value.split())
+
+
+def print_page_structure(url: str) -> None:
+    print(f"--- learning english page ---")
     print(f"url={url}")
     try:
         html = fetch(url).decode("utf-8", errors="replace")
@@ -59,33 +58,38 @@ def print_page_structure(label: str, url: str) -> None:
         return
     lower = html.lower()
     print(f"page_bytes={len(html)}")
-    for needle in ("transcript", "widget-richtext", "<p", "vocabulary", "worksheet"):
-        print(f"count[{needle}]={lower.count(needle)}")
+
+    print(f"count[transcript]={lower.count('transcript')}")
+    print("--- all headings ---")
     for match in HEADING_RE.finditer(html):
-        text = re.sub(r"<[^>]+>", " ", match.group(2))
-        text = " ".join(text.split())
-        if any(
-            key in text.lower()
-            for key in ("transcript", "vocabulary", "worksheet", "introduction")
-        ):
-            print(f"heading h{match.group(1)}: {text[:80]} :: {match.group(0)[:160]}")
-    index = lower.find("transcript")
-    if index != -1:
-        snippet = html[max(0, index - 400): index + 2500]
-        tags = [tag.lower() for tag in TAG_RE.findall(snippet)]
-        classes = CLASS_RE.findall(snippet)
-        print(f"tags_around={tags[:100]}")
-        print(f"classes_around={classes[:40]}")
-    else:
-        print("no 'transcript' substring found")
+        text = clean_text(match.group(2))[:100]
+        print(f"h{match.group(1)}: {text}")
+
+    print("--- elements with transcript in id/class ---")
+    count = 0
+    for match in TRANSCRIPT_ELEMENT_RE.finditer(html):
+        print(f"{match.group(1).lower()} :: {match.group(0)[:240]}")
+        count += 1
+        if count >= 10:
+            break
+    if count == 0:
+        print("(none)")
+
+    print("--- tag/class sequence around each 'transcript' occurrence ---")
+    for idx_match in list(re.finditer(r"transcript", lower))[:8]:
+        start = max(0, idx_match.start() - 250)
+        snippet = html[start: idx_match.start() + 600]
+        tags = []
+        for tag_match in TAG_ATTR_RE.finditer(snippet):
+            attrs = CLASS_OR_ID_RE.findall(tag_match.group(2) or "")
+            tags.append(tag_match.group(1).lower() + (("[" + ",".join(attrs) + "]") if attrs else ""))
+        print(f"occurrence@{idx_match.start()}: {tags[:40]}")
     print()
 
 
 def main() -> int:
-    print("===== feature feeds =====")
-    feature_links: list[str] = []
     for name, feed_url in FEATURE_FEEDS:
-        print(f"--- feature feed: {name} ---")
+        print(f"===== feature feed: {name} =====")
         try:
             data = fetch(feed_url)
             _, items = bbc.parse_rss(data, bbc.FeedSpec(name, name, ()))
@@ -93,50 +97,14 @@ def main() -> int:
             print(f"feed failed: {exc}")
             continue
         print(f"items={len(items)}")
-        for item in items[:3]:
-            print(f"item_link={item.link}")
+        for item in items[:2]:
+            print(f"title={item.title}")
+            print(f"link={item.link}")
+            print(f"published={item.published_at}")
+            print(f"duration={item.duration_seconds} audio={bool(item.audio_url)}")
             print(f"summary_len={len(item.summary)}")
-            if "learningenglish" in item.link:
-                feature_links.append(item.link)
-        print()
-
-    print("===== podcast programme pages =====")
-    for name, feed_url in PODCAST_FEEDS:
-        print(f"--- {name} ---")
-        try:
-            data = fetch(feed_url)
-            _, items = bbc.parse_rss(data, bbc.FeedSpec(name, name, ()))
-        except Exception as exc:  # noqa: BLE001 - diagnostics
-            print(f"feed failed: {exc}")
-            continue
-        if not items:
-            print("no items")
-            continue
-        item = items[0]
-        print(f"title={item.title}")
-        print(f"link={item.link}")
-        try:
-            html = fetch(item.link).decode("utf-8", errors="replace")
-        except Exception as exc:  # noqa: BLE001 - diagnostics
-            print(f"page failed: {exc}")
-            continue
-        candidates = []
-        for href in LINK_RE.findall(html):
-            if any(key in href.lower() for key in INTERESTING):
-                absolute = urllib.parse.urljoin(item.link, href)
-                absolute = absolute.split("?", 1)[0]
-                if absolute not in candidates:
-                    candidates.append(absolute)
-        for candidate in candidates[:20]:
-            print(f"candidate={candidate}")
-            if candidate not in feature_links and "learningenglish" in candidate:
-                feature_links.append(candidate)
-        print()
-
-    print("===== learning english pages =====")
-    for url in feature_links[:5]:
-        print_page_structure("feature", url)
-
+        if items:
+            print_page_structure(items[0].link)
     return 0
 
 
